@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use bevy::sprite::Sprite;
 use bevy_rapier2d::prelude::*;
 
+/// Component that identifies which wall this entity represents
 #[derive(Component)]
-/// Identifies which wall this entity represents
 pub enum Wall {
     Top,
     Bottom,
@@ -13,39 +13,66 @@ pub enum Wall {
     Right,
 }
 
-/// Thickness of the board walls in world units.
-const WALL_THICKNESS: f32 = 0.1;
+/// Physical dimensions of the game board and its elements
+const WALL_THICKNESS: f32 = 0.1; // Wall thickness in world units
+const BOARD_WIDTH: f32 = 16.0; // Total width of game board
+const BOARD_HEIGHT: f32 = 10.0; // Total height of game board
 
-/// Total width of the game board in world units.
-const BOARD_WIDTH: f32 = 16.0;
-
-/// Total height of the game board in world units.
-const BOARD_HEIGHT: f32 = 10.0;
-
-/// Configuration for the center line's dashes
+/// Center line visual settings
 const DASH_LENGTH: f32 = 0.8; // Length of each dash
 const DASH_WIDTH: f32 = 0.1; // Width of each dash
 const DASH_GAP: f32 = 0.4; // Gap between dashes
 
-/// Creates the background color resource for the game.
+/// Physics settings for the walls
+const WALL_RESTITUTION: f32 = 1.5; // Wall bounciness (>1 means adding energy)
+
+/// Creates the black background color resource
 pub fn black_background() -> ClearColor {
     ClearColor(Color::srgb(0.0, 0.0, 0.0))
+}
+
+/// Common physics bundle for walls to ensure consistent behavior
+fn wall_physics_bundle(
+    width: f32,
+    height: f32,
+) -> (
+    RigidBody,
+    Collider,
+    Restitution,
+    Friction,
+    ActiveCollisionTypes,
+    ActiveEvents,
+) {
+    (
+        RigidBody::Fixed, // Walls don't move
+        Collider::cuboid(width / 2.0, height / 2.0),
+        Restitution {
+            coefficient: WALL_RESTITUTION,
+            combine_rule: CoefficientCombineRule::Max, // Use highest restitution in collisions
+        },
+        Friction {
+            coefficient: 0.0,
+            combine_rule: CoefficientCombineRule::Min, // No friction to maintain energy
+        },
+        ActiveCollisionTypes::all(),
+        ActiveEvents::COLLISION_EVENTS,
+    )
 }
 
 /// Spawns the center line made up of dashed sprites.
 /// This is purely visual and has no collision components.
 fn spawn_center_line(mut commands: Commands) {
-    // Calculate the space taken by one dash + one gap
+    // Calculate space for one complete dash cycle
     let dash_cycle = DASH_LENGTH + DASH_GAP;
 
-    // Calculate how many complete dash+gap cycles fit in the board height
+    // Calculate number of complete cycles that fit
     let num_cycles = (BOARD_HEIGHT / dash_cycle).floor();
 
-    // Calculate remaining space and adjust starting position to center the pattern
-    let total_pattern_height = num_cycles * dash_cycle - DASH_GAP; // Subtract final gap
+    // Center the pattern vertically
+    let total_pattern_height = num_cycles * dash_cycle - DASH_GAP;
     let start_y = -(total_pattern_height / 2.0);
 
-    // Spawn dashes
+    // Spawn visual dashes
     for i in 0..num_cycles as i32 {
         let y_position = start_y + (i as f32 * dash_cycle) + (DASH_LENGTH / 2.0);
 
@@ -63,6 +90,8 @@ fn spawn_center_line(mut commands: Commands) {
 }
 
 /// Spawns the four walls that make up the game board boundaries.
+/// Each wall is given bouncy physics properties to create more
+/// interesting ball trajectories.
 fn spawn_walls(mut commands: Commands) {
     let half_width = BOARD_WIDTH / 2.0;
     let half_height = BOARD_HEIGHT / 2.0;
@@ -75,10 +104,7 @@ fn spawn_walls(mut commands: Commands) {
             ..default()
         },
         Transform::from_xyz(0.0, half_height, 0.0),
-        Collider::cuboid(half_width, WALL_THICKNESS / 2.0),
-        RigidBody::Fixed,
-        ActiveCollisionTypes::all(),
-        ActiveEvents::COLLISION_EVENTS,
+        wall_physics_bundle(BOARD_WIDTH, WALL_THICKNESS),
         Wall::Top,
     ));
 
@@ -90,14 +116,11 @@ fn spawn_walls(mut commands: Commands) {
             ..default()
         },
         Transform::from_xyz(0.0, -half_height, 0.0),
-        Collider::cuboid(half_width, WALL_THICKNESS / 2.0),
-        RigidBody::Fixed,
-        ActiveCollisionTypes::all(),
-        ActiveEvents::COLLISION_EVENTS,
+        wall_physics_bundle(BOARD_WIDTH, WALL_THICKNESS),
         Wall::Bottom,
     ));
 
-    // Left wall
+    // Left wall (scoring wall for P2)
     commands.spawn((
         Sprite {
             color: Color::WHITE,
@@ -105,14 +128,11 @@ fn spawn_walls(mut commands: Commands) {
             ..default()
         },
         Transform::from_xyz(-half_width, 0.0, 0.0),
-        Collider::cuboid(WALL_THICKNESS / 2.0, half_height),
-        RigidBody::Fixed,
-        ActiveCollisionTypes::all(),
-        ActiveEvents::COLLISION_EVENTS,
+        wall_physics_bundle(WALL_THICKNESS, BOARD_HEIGHT),
         Wall::Left,
     ));
 
-    // Right wall
+    // Right wall (scoring wall for P1)
     commands.spawn((
         Sprite {
             color: Color::WHITE,
@@ -120,15 +140,16 @@ fn spawn_walls(mut commands: Commands) {
             ..default()
         },
         Transform::from_xyz(half_width, 0.0, 0.0),
-        Collider::cuboid(WALL_THICKNESS / 2.0, half_height),
-        RigidBody::Fixed,
-        ActiveCollisionTypes::all(),
-        ActiveEvents::COLLISION_EVENTS,
+        wall_physics_bundle(WALL_THICKNESS, BOARD_HEIGHT),
         Wall::Right,
     ));
 }
 
-/// Plugin responsible for setting up the game board.
+/// Plugin that manages the game board setup
+/// Responsible for:
+/// - Creating the black background
+/// - Spawning the bouncy walls
+/// - Drawing the center line
 pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {

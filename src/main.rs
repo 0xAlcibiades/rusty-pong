@@ -2,6 +2,7 @@ use crate::ball::BallPlugin;
 use crate::board::BoardPlugin;
 use crate::camera::CameraPlugin;
 use crate::player::PlayerPlugin;
+use crate::score::ScorePlugin;
 use crate::window::default_window_plugin;
 use bevy::app::{App, PluginGroup};
 use bevy::DefaultPlugins;
@@ -18,6 +19,9 @@ mod window;
 
 /// Module for ball entity creation and movement
 mod ball;
+
+/// Module for score tracking and display
+mod score;
 
 /// Entry point for the game.
 ///
@@ -56,6 +60,7 @@ fn main() {
             PlayerPlugin, // Creates and manages the player paddles
             CameraPlugin, // Configures the game camera
             BallPlugin,   // Adds the ball entity and movement
+            ScorePlugin,  // Adds score tracking and display
         ))
         .run();
 }
