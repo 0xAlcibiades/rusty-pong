@@ -1,0 +1,16 @@
+[package]
+name = "pong"
+version = "0.1.0"
+edition = "2021"
+authors = ["0xAlcibiades <alcibiades.eth@protonmail.com>"]
+
+[dependencies]
+bevy = { version = "0.15.0" }
+bevy_rapier2d = "0.28.0"
+rand = "0.8.5"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
