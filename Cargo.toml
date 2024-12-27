@@ -24,6 +24,7 @@ bevy = { version = "0.15.0", features = [
     "webgpu",              # WebGPU support for modern browsers
     "x11",                 # Linux display server support
     "bevy_state",          # For GameState management
+    "bevy_color",          # Color utilities
 ], default-features = false }  # Disable default features to minimize size
 
 # Audio system that works with WASM
