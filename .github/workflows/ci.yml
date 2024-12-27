@@ -21,11 +21,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [ "stable", "beta", "nightly", "1.80" ] # MSRV
+        rust: [ "stable", "beta", "nightly", "1.82" ] # MSRV
         flags: [ "--no-default-features", "", "--all-features" ]
         exclude:
           # Skip because some features have highest MSRV.
-          - rust: "1.80" # MSRV
+          - rust: "1.82" # MSRV
             flags: "--all-features"
     steps:
       - uses: actions/checkout@v4
@@ -37,10 +37,10 @@ jobs:
           cache-on-failure: true
       # Only run tests on the latest stable and above
       - name: check
-        if: ${{ matrix.rust == '1.80' }} # MSRV
+        if: ${{ matrix.rust == '1.82' }} # MSRV
         run: cargo check --workspace ${{ matrix.flags }}
       - name: test
-        if: ${{ matrix.rust != '1.80' }} # MSRV
+        if: ${{ matrix.rust != '1.82' }} # MSRV
         run: cargo test --workspace ${{ matrix.flags }}
 
   coverage:
@@ -49,28 +49,20 @@ jobs:
     env:
       LLVMCOV_VERSION: 0.5.14
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           override: true
           profile: minimal
           components: clippy, rustfmt
-
-      - name: Cache rust dependencies
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: rust-cache-hyper-server-coverage-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-${{ env.LLVMCOV_VERSION }}
-
+          shared-key: rust-cache-coverage-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-${{ env.LLVMCOV_VERSION }}
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov --version=${{ env.LLVMCOV_VERSION }} --locked
-
       - name: Generate code coverage
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
@@ -123,3 +115,43 @@ jobs:
         with:
           components: rustfmt
       - run: cargo fmt --all --check
+
+  build-and-deploy:
+    name: Build and Deploy
+    needs: [test, coverage, feature-checks, clippy, docs, fmt]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+    concurrency: ci-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Build wasm
+        run: |
+          cargo build --release --target wasm32-unknown-unknown
+          wasm-bindgen --out-dir ./dist --target web target/wasm32-unknown-unknown/release/rusty_pong.wasm
+
+      - name: Prepare deployment
+        run: |
+          mkdir -p dist/assets
+          cp -r assets/* dist/assets/
+          cp web/index.html dist/
+
+      - name: Deploy 🚀
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist       # The folder the action should deploy
+          branch: gh-pages  # The branch the action should deploy to
+          clean: true      # Automatically remove deleted files from deploy branch

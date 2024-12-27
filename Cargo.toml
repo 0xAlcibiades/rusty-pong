@@ -7,7 +7,6 @@ authors = ["0xAlcibiades <alcibiades.eth@protonmail.com>"]
 [dependencies]
 bevy = { version = "0.15.0" , features = ["mp3", "webgpu"]}
 bevy_rapier2d = "0.28.0"
-bevy_splash_screen = "0.6.0"
 rand = "0.8.5"
 
 [profile.dev]
