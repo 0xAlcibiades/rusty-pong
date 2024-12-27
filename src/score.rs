@@ -1,7 +1,7 @@
-use crate::ball::{create_ball, Ball};
-use crate::board::Wall;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
+use crate::board::Wall;
+use crate::ball::{Ball, create_ball};
 use rand::Rng;
 
 /// Tracks game score and serving state, implementing standard table tennis rules:
@@ -33,8 +33,8 @@ impl Score {
             p2: 0,
             server_is_p1: rand::thread_rng().gen_bool(0.5),
             serve_count: 0,
-            // A 300ms delay between points
-            serve_timer: Timer::from_seconds(0.3, TimerMode::Once),
+            // A 750ms delay between points
+            serve_timer: Timer::from_seconds(0.75, TimerMode::Once),
             should_serve: false,
         }
     }
@@ -82,20 +82,19 @@ fn setup_score_ui(mut commands: Commands) {
     commands.insert_resource(Score::new());
 
     // Root node - provides centering and layout for score elements
-    commands
-        .spawn(Node {
-            // Take full width for centering
-            position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            // Position at top of screen with some padding
-            top: Val::Px(20.0),
-            // Center children horizontally
-            justify_content: JustifyContent::Center,
-            // Use flexbox layout
-            display: Display::Flex,
-            flex_direction: FlexDirection::Row,
-            ..default()
-        })
+    commands.spawn(Node {
+        // Take full width for centering
+        position_type: PositionType::Absolute,
+        width: Val::Percent(100.0),
+        // Position at top of screen with some padding
+        top: Val::Px(20.0),
+        // Center children horizontally
+        justify_content: JustifyContent::Center,
+        // Use flexbox layout
+        display: Display::Flex,
+        flex_direction: FlexDirection::Row,
+        ..default()
+    })
         .with_children(|parent| {
             // Player 1 score (left side)
             parent.spawn((
@@ -106,7 +105,7 @@ fn setup_score_ui(mut commands: Commands) {
                 },
                 TextColor(Color::WHITE),
                 Node {
-                    margin: UiRect::right(Val::Px(20.0)), // Space between scores
+                    margin: UiRect::right(Val::Px(20.0)),  // Space between scores
                     ..default()
                 },
                 ScoreText::P1,
@@ -121,7 +120,7 @@ fn setup_score_ui(mut commands: Commands) {
                 },
                 TextColor(Color::WHITE),
                 Node {
-                    margin: UiRect::left(Val::Px(20.0)), // Space between scores
+                    margin: UiRect::left(Val::Px(20.0)),  // Space between scores
                     ..default()
                 },
                 ScoreText::P2,
@@ -144,12 +143,7 @@ fn handle_serve_delay(
         score.serve_timer.tick(time.delta());
 
         if score.serve_timer.just_finished() {
-            create_ball(
-                &mut commands,
-                &mut meshes,
-                &mut materials,
-                score.server_is_p1,
-            );
+            create_ball(&mut commands, &mut meshes, &mut materials, score.server_is_p1);
             score.should_serve = false;
             score.serve_timer.reset();
         }
@@ -172,26 +166,23 @@ fn handle_scoring(
     for collision_event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = collision_event {
             let ball_entity = ball_query.iter().find(|e| *e == *e1 || *e == *e2);
-            let wall = wall_query
-                .iter()
+            let wall = wall_query.iter()
                 .find(|(e, _)| *e == *e1 || *e == *e2)
                 .map(|(_, w)| w);
 
             if let (Some(ball_entity), Some(wall)) = (ball_entity, wall) {
                 match wall {
-                    Wall::Left => {
-                        // P2 scores
+                    Wall::Left => {  // P2 scores
                         score.add_point(false);
                         commands.entity(ball_entity).despawn();
                         score.should_serve = true;
                     }
-                    Wall::Right => {
-                        // P1 scores
+                    Wall::Right => {  // P1 scores
                         score.add_point(true);
                         commands.entity(ball_entity).despawn();
                         score.should_serve = true;
                     }
-                    _ => {} // Ignore top/bottom wall collisions
+                    _ => {}  // Ignore top/bottom wall collisions
                 }
             }
         }
@@ -202,7 +193,10 @@ fn handle_scoring(
 ///
 /// Monitors the score resource and updates both player score displays
 /// to show their current points. Only runs when the score actually changes.
-fn update_score_display(score: Res<Score>, mut query: Query<(&mut Text, &ScoreText)>) {
+fn update_score_display(
+    score: Res<Score>,
+    mut query: Query<(&mut Text, &ScoreText)>,
+) {
     if score.is_changed() {
         for (mut text, score_type) in query.iter_mut() {
             match score_type {
@@ -228,9 +222,11 @@ pub struct ScorePlugin;
 
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_score_ui).add_systems(
-            Update,
-            (handle_scoring, update_score_display, handle_serve_delay),
-        );
+        app.add_systems(Startup, setup_score_ui)
+            .add_systems(Update, (
+                handle_scoring,
+                update_score_display,
+                handle_serve_delay,
+            ));
     }
 }
