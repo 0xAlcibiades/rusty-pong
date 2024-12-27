@@ -17,7 +17,8 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use rand::Rng;
 
-/// Resource that tracks the game's scoring state
+/// Resource that tracks the game's scoring state.
+/// This persists across state changes to maintain score history.
 #[derive(Resource)]
 pub struct Score {
     pub p1: u32,            // Player 1's score
@@ -107,34 +108,43 @@ impl Score {
     }
 }
 
-/// Component to identify score display text entities
+/// Component to identify score display text entities.
+/// Used for both individual score texts and their container.
 #[derive(Component)]
-enum ScoreText {
-    P1, // Player 1's score text
-    P2, // Player 2's score text
+struct ScoreText {
+    kind: ScoreKind,
 }
 
-/// Sets up the score display UI
-///
-/// Creates:
-/// - Score resource initialization
-/// - Centered score display container
-/// - Player score text elements
-fn setup_score_ui(mut commands: Commands) {
-    // Initialize score resource
-    commands.insert_resource(Score::new());
+/// Enum to differentiate between different score UI elements
+enum ScoreKind {
+    P1,     // Player 1's score text
+    P2,     // Player 2's score text
+    Root,   // The container node
+}
 
-    // Create UI container
+/// Initializes the Score resource at startup.
+/// This runs once when the game starts and persists through all states.
+fn init_score(mut commands: Commands) {
+    commands.insert_resource(Score::new());
+}
+
+/// Sets up the score display UI when entering Playing state.
+/// The UI is only visible during actual gameplay.
+fn setup_score_ui(mut commands: Commands) {
+    // Create UI root container
     commands
-        .spawn(Node {
-            position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            top: Val::Px(20.0),
-            justify_content: JustifyContent::Center,
-            display: Display::Flex,
-            flex_direction: FlexDirection::Row,
-            ..default()
-        })
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                top: Val::Px(20.0),
+                justify_content: JustifyContent::Center,
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                ..default()
+            },
+            ScoreText { kind: ScoreKind::Root }, // Mark for cleanup
+        ))
         .with_children(|parent| {
             // Player 1 score text
             parent.spawn((
@@ -148,7 +158,7 @@ fn setup_score_ui(mut commands: Commands) {
                     margin: UiRect::right(Val::Px(20.0)),
                     ..default()
                 },
-                ScoreText::P1,
+                ScoreText { kind: ScoreKind::P1 },
             ));
 
             // Player 2 score text
@@ -163,16 +173,15 @@ fn setup_score_ui(mut commands: Commands) {
                     margin: UiRect::left(Val::Px(20.0)),
                     ..default()
                 },
-                ScoreText::P2,
+                ScoreText { kind: ScoreKind::P2 },
             ));
         });
 }
 
-/// Spawns a new ball when entering Playing state or resuming from pause
-///
-/// Only spawns if:
-/// - No ball currently exists
-/// - Not currently in serve delay
+/// Spawns a new ball when:
+/// - Entering Playing state initially
+/// - Resuming from pause
+/// - Starting a new game after victory
 fn on_resume(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -180,6 +189,7 @@ fn on_resume(
     score: Res<Score>,
     ball_query: Query<Entity, With<Ball>>,
 ) {
+    // Only spawn if no ball exists and we're not in serve delay
     if ball_query.is_empty() && !score.should_serve {
         create_ball(
             &mut commands,
@@ -190,11 +200,8 @@ fn on_resume(
     }
 }
 
-/// Checks for victory conditions and transitions to game over state
-///
-/// When victory is achieved:
-/// 1. Despawns the ball to prevent further scoring
-/// 2. Transitions to the GameOver state
+/// Checks for victory conditions and transitions to GameOver state.
+/// This only runs during active gameplay.
 fn check_victory(
     score: Res<Score>,
     mut commands: Commands,
@@ -211,12 +218,10 @@ fn check_victory(
     }
 }
 
-/// Handles the delay between scoring and serving
-///
-/// Provides a brief pause after points to:
+/// Handles the delay between scoring and serving.
+/// This provides a brief pause after points to:
 /// - Let players see what happened
 /// - Prepare for the next serve
-/// - Reset game state
 fn handle_serve_delay(
     time: Res<Time>,
     mut score: ResMut<Score>,
@@ -240,8 +245,7 @@ fn handle_serve_delay(
     }
 }
 
-/// Handles ball collisions with scoring walls
-///
+/// Handles ball collisions with scoring walls.
 /// When ball hits left/right walls:
 /// 1. Updates appropriate player's score
 /// 2. Despawns the ball
@@ -281,19 +285,31 @@ fn handle_scoring(
     }
 }
 
-/// Updates the score display text when scores change
+/// Updates the score display text whenever scores change
 fn update_score_display(score: Res<Score>, mut query: Query<(&mut Text, &ScoreText)>) {
     if score.is_changed() {
-        for (mut text, score_type) in query.iter_mut() {
-            match score_type {
-                ScoreText::P1 => {
+        for (mut text, score_text) in query.iter_mut() {
+            match score_text.kind {
+                ScoreKind::P1 => {
                     **text = score.p1.to_string();
                 }
-                ScoreText::P2 => {
+                ScoreKind::P2 => {
                     **text = score.p2.to_string();
                 }
+                ScoreKind::Root => {} // Container doesn't need updating
             }
         }
+    }
+}
+
+/// Cleans up the score UI elements when exiting Playing state.
+/// This ensures the UI is removed during:
+/// - Game over
+/// - Pause menu
+/// - Return to splash screen
+fn cleanup_score_ui(mut commands: Commands, query: Query<Entity, With<ScoreText>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn_recursive();
     }
 }
 
@@ -303,8 +319,12 @@ pub struct ScorePlugin;
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut App) {
         app
-            // Initialize UI at startup
-            .add_systems(Startup, setup_score_ui)
+            // Initialize score resource at startup
+            .add_systems(Startup, init_score)
+            // Setup UI when entering Playing state
+            .add_systems(OnEnter(GameState::Playing), setup_score_ui)
+            // Clean up UI when exiting Playing state
+            .add_systems(OnExit(GameState::Playing), cleanup_score_ui)
             // Handle ball spawning when entering Playing state
             .add_systems(OnEnter(GameState::Playing), on_resume)
             // Update score display whenever scores change

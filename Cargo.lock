@@ -4504,16 +4504,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pong"
-version = "0.1.0"
-dependencies = [
- "bevy 0.15.0",
- "bevy_rapier2d",
- "bevy_splash_screen",
- "rand",
-]
-
-[[package]]
 name = "pp-rs"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4845,6 +4835,16 @@ dependencies = [
  "libc",
  "linux-raw-sys",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "rusty_pong"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.15.0",
+ "bevy_rapier2d",
+ "bevy_splash_screen",
+ "rand",
 ]
 
 [[package]]
