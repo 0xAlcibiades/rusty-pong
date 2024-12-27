@@ -1,106 +1,122 @@
-use bevy::app::{App, Plugin, Startup, Update};
+//! Ball Physics Module
+//!
+//! This module handles all aspects of the game ball, including:
+//! - Physical properties and behavior
+//! - Spawn and cleanup logic
+//! - Velocity maintenance
+//! - Collision detection and response
+//!
+//! The ball uses Rapier2D physics for realistic movement and collisions.
+
+use crate::GameState;
+use bevy::app::{App, Plugin, Update};
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-/// Physical properties of the ball
+/// Physical properties of the ball that define its behavior
 const BALL_SIZE: f32 = 0.3; // Diameter in world units
-const BALL_SPEED: f32 = 10.0; // Velocity in world units per second
-const SPEED_TOLERANCE: f32 = 0.5; // Allowed deviation from BALL_SPEED
-const RESTITUTION: f32 = 1.5; // Bounciness (>1 means gaining energy on bounce)
+const BALL_SPEED: f32 = 10.0; // Constant speed the ball should maintain
+const SPEED_TOLERANCE: f32 = 0.5; // Allowed speed variation before correction
+const RESTITUTION: f32 = 1.5; // Bounciness (>1 means gaining energy)
+const BALL_MASS: f32 = 0.1; // Mass affects collision response
 
-const BALL_MASS: f32 = 0.1; // Make the ball very light!
-
-/// Component marking an entity as the game ball.
-/// Required for querying ball entities in physics and game systems.
+/// Marker component to identify ball entities.
+/// Used for querying and managing ball-specific behavior.
 #[derive(Component)]
 pub struct Ball;
 
-/// Creates a new ball entity at the center of the board
+/// Creates a new ball entity with all necessary components for physics and rendering.
 ///
 /// # Arguments
 /// * `commands` - Command buffer for entity creation
-/// * `served_by_p1` - If true, ball moves right (served by P1), if false, moves left (served by P2)
-///
-/// The ball is configured with:
-/// - High restitution for energetic bounces
-/// - Zero friction to maintain momentum
-/// - Zero damping to prevent velocity loss
-/// - Continuous collision detection to prevent tunneling
+/// * `meshes` - Asset storage for the ball's mesh
+/// * `materials` - Asset storage for the ball's material
+/// * `served_by_p1` - Direction ball should initially move (true = right, false = left)
 pub fn create_ball(
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<ColorMaterial>>,
     served_by_p1: bool,
 ) {
+    // Determine initial direction based on server
     let direction = if served_by_p1 { 1 } else { -1 };
 
     commands.spawn((
-        Ball,
-        // Visual components using new non-deprecated approach
-        Mesh2d(meshes.add(Circle::new(BALL_SIZE / 2.0))),
-        MeshMaterial2d(materials.add(ColorMaterial::from(Color::WHITE))),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-        // Physics components remain the same
-        RigidBody::Dynamic,
-        Collider::ball(BALL_SIZE / 2.0),
+        // Identification and visual components
+        Ball,                                                             // Marker component
+        Mesh2d(meshes.add(Circle::new(BALL_SIZE / 2.0))),                 // Visual shape
+        MeshMaterial2d(materials.add(ColorMaterial::from(Color::WHITE))), // Color
+        Transform::from_xyz(0.0, 0.0, 0.0),                               // Start at center
+        // Physics body configuration
+        RigidBody::Dynamic,              // Moves based on physics
+        Collider::ball(BALL_SIZE / 2.0), // Circular collision shape
+        // Initial velocity (horizontal only)
         Velocity::linear(Vec2::new(BALL_SPEED * direction as f32, 0.0)),
+        // Collision response properties
         Restitution {
             coefficient: RESTITUTION,
-            combine_rule: CoefficientCombineRule::Max,
+            combine_rule: CoefficientCombineRule::Max, // Use highest restitution in collisions
         },
         Friction {
-            coefficient: 0.0,
-            combine_rule: CoefficientCombineRule::Min,
+            coefficient: 0.0,                          // Frictionless
+            combine_rule: CoefficientCombineRule::Min, // Use lowest friction in collisions
         },
+        // Physics behavior modifiers
         Damping {
-            linear_damping: 0.0,
-            angular_damping: 0.0,
+            linear_damping: 0.0,  // No speed loss over time
+            angular_damping: 0.0, // No rotation slowdown
         },
-        GravityScale(0.0),
-        Ccd::enabled(),
-        ActiveCollisionTypes::all(),
-        ActiveEvents::COLLISION_EVENTS,
-        AdditionalMassProperties::Mass(BALL_MASS),
+        GravityScale(0.0), // Ignore gravity
+        // Collision detection settings
+        Ccd::enabled(),                            // Continuous collision detection
+        ActiveCollisionTypes::all(),               // Detect all collision types
+        ActiveEvents::COLLISION_EVENTS,            // Generate collision events
+        AdditionalMassProperties::Mass(BALL_MASS), // Set specific mass
     ));
 }
 
-/// Spawns the initial ball moving towards Player 1
-fn setup_game(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    create_ball(&mut commands, &mut meshes, &mut materials, false);
+/// System to clean up the ball when exiting the Playing state.
+/// This prevents the ball from persisting in other game states.
+fn cleanup_ball(mut commands: Commands, ball_query: Query<Entity, With<Ball>>) {
+    for entity in ball_query.iter() {
+        commands.entity(entity).despawn();
+    }
 }
 
-/// System that maintains constant ball velocity
+/// System that maintains constant ball speed regardless of collisions.
 ///
-/// This system ensures the ball maintains a consistent speed even after
-/// multiple collisions. Physics engines can sometimes introduce small
-/// velocity changes due to numerical precision issues, so this system
-/// corrects any significant deviations from the desired speed.
+/// This is necessary because:
+/// 1. Collisions can change the ball's speed
+/// 2. We want the game to maintain a consistent pace
+/// 3. Numerical errors can accumulate over time
 ///
-/// The correction only happens if the speed differs from BALL_SPEED
-/// by more than SPEED_TOLERANCE to avoid constant minor adjustments.
+/// The system checks the current speed against BALL_SPEED and
+/// corrects it if it deviates beyond SPEED_TOLERANCE.
 fn maintain_ball_velocity(mut query: Query<&mut Velocity, With<Ball>>) {
     for mut velocity in query.iter_mut() {
         let current_velocity = velocity.linvel;
         let current_speed = current_velocity.length();
 
-        // Only adjust if speed has deviated significantly
+        // Correct speed if it's outside tolerance range
         if (current_speed - BALL_SPEED).abs() > SPEED_TOLERANCE {
-            // Normalize to get direction, then scale to desired speed
+            // Maintain direction but normalize speed
             velocity.linvel = current_velocity.normalize() * BALL_SPEED;
         }
     }
 }
 
-/// Plugin that handles all ball-related functionality
+/// Plugin that manages all ball-related systems.
 pub struct BallPlugin;
 
 impl Plugin for BallPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_game)
-            .add_systems(Update, maintain_ball_velocity);
+        app
+            // Clean up ball when leaving Playing state
+            .add_systems(OnExit(GameState::Playing), cleanup_ball)
+            // Maintain ball velocity during gameplay
+            .add_systems(
+                Update,
+                maintain_ball_velocity.run_if(in_state(GameState::Playing)),
+            );
     }
 }

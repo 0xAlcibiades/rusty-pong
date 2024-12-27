@@ -1,46 +1,57 @@
+//! Score Management Module
+//!
+//! This module handles all scoring-related functionality, including:
+//! - Score tracking and display
+//! - Serve mechanics and timing
+//! - Ball spawning on points
+//! - Score UI rendering
+//!
+//! The scoring system follows traditional ping-pong rules with
+//! serve switching and deuce handling.
+
+use crate::ball::{create_ball, Ball};
+use crate::board::Wall;
+use crate::GameState;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
-use crate::board::Wall;
-use crate::ball::{Ball, create_ball};
 use rand::Rng;
 
-/// Tracks game score and serving state, implementing standard table tennis rules:
-/// - Server alternates every 2 points during normal play
-/// - During deuce (10-10 or higher), server alternates every point
-/// - Initial server is randomly chosen at game start
-/// - 1-second delay between points
+/// Resource that tracks the game's scoring state
 #[derive(Resource)]
 pub struct Score {
-    /// Current score for Player 1 (left side)
-    pub p1: u32,
-    /// Current score for Player 2 (right side)
-    pub p2: u32,
-    /// True if Player 1 is currently serving, false for Player 2
-    pub server_is_p1: bool,
-    /// Number of points played since last server change
-    serve_count: u32,
-    /// Timer to control delay between points
-    serve_timer: Timer,
-    /// Flag indicating when a new serve should occur after delay
-    should_serve: bool,
+    pub p1: u32,            // Player 1's score
+    pub p2: u32,            // Player 2's score
+    pub server_is_p1: bool, // Whether P1 is currently serving
+    serve_count: u32,       // Number of serves since last switch
+    serve_timer: Timer,     // Delay between point and next serve
+    pub should_serve: bool, // Whether we're waiting to serve
 }
 
 impl Score {
-    /// Creates a new score tracker with scores at 0 and random initial server
+    /// Creates a new score state with initial values
     fn new() -> Self {
         Self {
             p1: 0,
             p2: 0,
+            // Randomly choose initial server
             server_is_p1: rand::thread_rng().gen_bool(0.5),
             serve_count: 0,
-            // A 750ms delay between points
+            // 0.75 second delay before serving
             serve_timer: Timer::from_seconds(0.75, TimerMode::Once),
             should_serve: false,
         }
     }
 
-    /// Increments score and handles serve switching according to table tennis rules
+    /// Adds a point and handles serve switching logic
+    ///
+    /// # Arguments
+    /// * `p1_scored` - Whether player 1 scored the point
+    ///
+    /// # Serve Switching Rules
+    /// - Normal play: Switch server every 2 points
+    /// - Deuce (10-10 or higher): Switch every point
     fn add_point(&mut self, p1_scored: bool) {
+        // Update score
         if p1_scored {
             self.p1 += 1;
         } else {
@@ -49,9 +60,11 @@ impl Score {
 
         self.serve_count += 1;
 
+        // Check for deuce conditions
         let in_deuce = self.p1 >= 10 && self.p2 >= 10;
         let switch_threshold = if in_deuce { 1 } else { 2 };
 
+        // Switch server if threshold reached
         if self.serve_count >= switch_threshold {
             self.server_is_p1 = !self.server_is_p1;
             self.serve_count = 0;
@@ -59,44 +72,36 @@ impl Score {
     }
 }
 
-/// Component to identify score display text elements
+/// Component to identify score display text entities
 #[derive(Component)]
 enum ScoreText {
-    /// Left side score (Player 1)
-    P1,
-    /// Right side score (Player 2)
-    P2,
+    P1, // Player 1's score text
+    P2, // Player 2's score text
 }
 
-/// Sets up the score display UI at the top center of the screen
+/// Sets up the score display UI
 ///
 /// Creates:
-/// - Root node spanning full width for centering
-/// - Two text elements displaying scores
-/// - Proper spacing between scores
-///
-/// The scores are positioned absolutely at the top of the screen
-/// and centered horizontally using flexbox layout.
+/// - Score resource initialization
+/// - Centered score display container
+/// - Player score text elements
 fn setup_score_ui(mut commands: Commands) {
-    // Initialize the score tracking resource
+    // Initialize score resource
     commands.insert_resource(Score::new());
 
-    // Root node - provides centering and layout for score elements
-    commands.spawn(Node {
-        // Take full width for centering
-        position_type: PositionType::Absolute,
-        width: Val::Percent(100.0),
-        // Position at top of screen with some padding
-        top: Val::Px(20.0),
-        // Center children horizontally
-        justify_content: JustifyContent::Center,
-        // Use flexbox layout
-        display: Display::Flex,
-        flex_direction: FlexDirection::Row,
-        ..default()
-    })
+    // Create UI container
+    commands
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            top: Val::Px(20.0),
+            justify_content: JustifyContent::Center,
+            display: Display::Flex,
+            flex_direction: FlexDirection::Row,
+            ..default()
+        })
         .with_children(|parent| {
-            // Player 1 score (left side)
+            // Player 1 score text
             parent.spawn((
                 Text::new("0"),
                 TextFont {
@@ -105,13 +110,13 @@ fn setup_score_ui(mut commands: Commands) {
                 },
                 TextColor(Color::WHITE),
                 Node {
-                    margin: UiRect::right(Val::Px(20.0)),  // Space between scores
+                    margin: UiRect::right(Val::Px(20.0)),
                     ..default()
                 },
                 ScoreText::P1,
             ));
 
-            // Player 2 score (right side)
+            // Player 2 score text
             parent.spawn((
                 Text::new("0"),
                 TextFont {
@@ -120,7 +125,7 @@ fn setup_score_ui(mut commands: Commands) {
                 },
                 TextColor(Color::WHITE),
                 Node {
-                    margin: UiRect::left(Val::Px(20.0)),  // Space between scores
+                    margin: UiRect::left(Val::Px(20.0)),
                     ..default()
                 },
                 ScoreText::P2,
@@ -128,10 +133,34 @@ fn setup_score_ui(mut commands: Commands) {
         });
 }
 
-/// System that handles serving delay and ball spawning
+/// Spawns a new ball when entering Playing state or resuming from pause
 ///
-/// After a point is scored, waits for the delay timer before spawning
-/// a new ball. The ball's direction is based on which player is serving.
+/// Only spawns if:
+/// - No ball currently exists
+/// - Not currently in serve delay
+fn on_resume(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    score: Res<Score>,
+    ball_query: Query<Entity, With<Ball>>,
+) {
+    if ball_query.is_empty() && !score.should_serve {
+        create_ball(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            score.server_is_p1,
+        );
+    }
+}
+
+/// Handles the delay between scoring and serving
+///
+/// Provides a brief pause after points to:
+/// - Let players see what happened
+/// - Prepare for the next serve
+/// - Reset game state
 fn handle_serve_delay(
     time: Res<Time>,
     mut score: ResMut<Score>,
@@ -143,19 +172,24 @@ fn handle_serve_delay(
         score.serve_timer.tick(time.delta());
 
         if score.serve_timer.just_finished() {
-            create_ball(&mut commands, &mut meshes, &mut materials, score.server_is_p1);
+            create_ball(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                score.server_is_p1,
+            );
             score.should_serve = false;
             score.serve_timer.reset();
         }
     }
 }
 
-/// System that detects ball collisions with walls and updates score
+/// Handles ball collisions with scoring walls
 ///
-/// When the ball hits a scoring wall:
-/// - Updates the score based on which wall was hit
-/// - Removes the ball from play
-/// - Triggers the serve delay timer
+/// When ball hits left/right walls:
+/// 1. Updates appropriate player's score
+/// 2. Despawns the ball
+/// 3. Triggers serve delay
 fn handle_scoring(
     mut commands: Commands,
     mut score: ResMut<Score>,
@@ -165,38 +199,34 @@ fn handle_scoring(
 ) {
     for collision_event in collision_events.read() {
         if let CollisionEvent::Started(e1, e2, _) = collision_event {
+            // Find the ball and wall entities involved
             let ball_entity = ball_query.iter().find(|e| *e == *e1 || *e == *e2);
-            let wall = wall_query.iter()
+            let wall = wall_query
+                .iter()
                 .find(|(e, _)| *e == *e1 || *e == *e2)
                 .map(|(_, w)| w);
 
             if let (Some(ball_entity), Some(wall)) = (ball_entity, wall) {
                 match wall {
-                    Wall::Left => {  // P2 scores
-                        score.add_point(false);
+                    Wall::Left => {
+                        score.add_point(false); // P2 scores
                         commands.entity(ball_entity).despawn();
                         score.should_serve = true;
                     }
-                    Wall::Right => {  // P1 scores
-                        score.add_point(true);
+                    Wall::Right => {
+                        score.add_point(true); // P1 scores
                         commands.entity(ball_entity).despawn();
                         score.should_serve = true;
                     }
-                    _ => {}  // Ignore top/bottom wall collisions
+                    _ => {} // Top/Bottom walls don't affect score
                 }
             }
         }
     }
 }
 
-/// Updates the score display whenever the score resource changes
-///
-/// Monitors the score resource and updates both player score displays
-/// to show their current points. Only runs when the score actually changes.
-fn update_score_display(
-    score: Res<Score>,
-    mut query: Query<(&mut Text, &ScoreText)>,
-) {
+/// Updates the score display text when scores change
+fn update_score_display(score: Res<Score>, mut query: Query<(&mut Text, &ScoreText)>) {
     if score.is_changed() {
         for (mut text, score_type) in query.iter_mut() {
             match score_type {
@@ -211,22 +241,22 @@ fn update_score_display(
     }
 }
 
-/// Plugin that manages all scoring functionality for the game
-///
-/// Provides:
-/// - Score tracking and serve management
-/// - Score display UI
-/// - Collision detection for scoring
-/// - Display updates
+/// Plugin that manages scoring functionality
 pub struct ScorePlugin;
 
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_score_ui)
-            .add_systems(Update, (
-                handle_scoring,
-                update_score_display,
-                handle_serve_delay,
-            ));
+        app
+            // Initialize UI at startup
+            .add_systems(Startup, setup_score_ui)
+            // Handle ball spawning when entering Playing state
+            .add_systems(OnEnter(GameState::Playing), on_resume)
+            // Update score display whenever scores change
+            .add_systems(Update, update_score_display)
+            // Handle scoring and serving during gameplay
+            .add_systems(
+                Update,
+                (handle_scoring, handle_serve_delay).run_if(in_state(GameState::Playing)),
+            );
     }
 }
