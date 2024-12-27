@@ -28,10 +28,10 @@ Through the lens of Fun:
 - Pause functionality
 - Background music toggle (M key)
 - Clean state management flow:
-    - Splash screen
-    - Active gameplay
-    - Pause menu
-    - Victory/defeat screen
+  - Splash screen
+  - Active gameplay
+  - Pause menu
+  - Victory/defeat screen
 
 ## Controls
 

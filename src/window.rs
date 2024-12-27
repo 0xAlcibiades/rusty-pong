@@ -23,6 +23,8 @@ use bevy::window::Window;
 pub(crate) fn default_window_plugin() -> WindowPlugin {
     WindowPlugin {
         primary_window: Some(Window {
+            // Set the canvas ID to match the parent element
+            canvas: Some("#pong-game-canvas".into()),
             // Enable canvas-to-parent fitting
             // This makes the game canvas automatically resize to fill its parent element,
             // providing a responsive layout that works across different screen sizes

@@ -35,9 +35,9 @@ impl Plugin for EndgamePlugin {
 /// Spawns the victory screen UI elements
 fn spawn_endgame_screen(mut commands: Commands, score: Res<Score>) {
     let (message, color) = if score.p1 > score.p2 {
-        ("Victory!", Color::srgba(0.0, 0.8, 0.0, 1.0)) // Green for victory
+        ("Victory!", Color::srgba(26.0, 228.0, 61.0, 1.0)) // Complementary green
     } else {
-        ("Defeat!", Color::srgba(0.8, 0.0, 0.0, 1.0)) // Red for defeat
+        ("Defeat!", Color::srgba(228.0, 61.0, 26.0, 1.0)) // Rust orange
     };
 
     commands

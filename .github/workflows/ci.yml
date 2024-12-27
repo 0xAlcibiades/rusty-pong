@@ -8,9 +8,9 @@ on:
     branches:
       - master
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   pull_request:
-    types: [ opened, synchronize, reopened ]
+    types: [opened, synchronize, reopened]
     branches:
       - master
 
@@ -58,8 +58,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [ "stable", "beta", "nightly", "1.82" ] # MSRV
-        flags: [ "--no-default-features", "", "--all-features" ]
+        rust: ["stable", "beta", "nightly", "1.82"] # MSRV
+        flags: ["--no-default-features", "", "--all-features"]
         exclude:
           - rust: "1.82"
             flags: "--all-features"
@@ -155,7 +155,7 @@ jobs:
   # Build WASM bundle and deploy to GitHub Pages
   build-and-deploy:
     name: Build and Deploy
-    needs: [ test, coverage, feature-checks, docs ]
+    needs: [test, coverage, feature-checks, docs]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
     permissions:
@@ -184,7 +184,7 @@ jobs:
           cargo build --release --target wasm32-unknown-unknown
           mkdir -p dist
           wasm-bindgen --out-dir ./dist --target web target/wasm32-unknown-unknown/release/rusty_pong.wasm
-          find ./dist -name "*.wasm" -exec wasm-opt -O3 -o {}.opt {} \; -exec mv {}.opt {} \;
+          find ./dist -name "*.wasm" -exec wasm-opt -Oz --zero-filled-memory --strip-producers -o {}.opt {} \; -exec mv {}.opt {} \;
       - name: Prepare deployment
         run: |
           mkdir -p dist/assets

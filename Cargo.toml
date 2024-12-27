@@ -1,58 +1,50 @@
+# Project metadata
 [package]
 name = "rusty_pong"
 version = "0.1.0"
 edition = "2021"
 authors = ["0xAlcibiades <alcibiades.eth@protonmail.com>"]
 
+# Dependencies with minimal feature selection for optimal binary size while maintaining functionality
 [dependencies]
-bevy = { version = "0.15.0", features = ["animation",
-    "bevy_asset",
-    "bevy_color",
-    "bevy_core_pipeline",
-    "bevy_gilrs",
-    "bevy_gizmos",
-    "bevy_gltf",
-    "bevy_mesh_picking_backend",
-    "bevy_pbr",
-    "bevy_picking",
-    "bevy_render",
-    "bevy_scene",
-    "bevy_sprite",
-    "bevy_sprite_picking_backend",
-    "bevy_state",
-    "bevy_text",
-    "bevy_ui",
-    "bevy_ui_picking_backend",
-    "bevy_window",
-    "bevy_winit",
-    "custom_cursor",
-    "default_font",
-    "hdr",
-    "multi_threaded",
-    "png",
-    "smaa_luts",
-    "sysinfo_plugin",
-    "tonemapping_luts",
-    "vorbis",
-    "webgl2",
-    "x11",
-    "webgpu"], default-features = false }
-# Kira audio works in WASM, supports FLAC, and works in local runs
+# Bevy game engine with carefully selected features:
+bevy = { version = "0.15.0", features = [
+    "bevy_asset",          # Asset loading system
+    "bevy_core_pipeline",  # Core rendering pipeline
+    "bevy_render",         # Basic rendering functionality
+    "bevy_sprite",         # 2D sprite support
+    "bevy_text",           # Text rendering for UI
+    "bevy_ui",             # User interface system
+    "bevy_window",         # Window management
+    "bevy_winit",          # Window creation and event handling
+    "default_font",        # Include default font for text
+    "multi_threaded",      # Enable multithreading for native builds
+    "png",                 # PNG image support
+    "webgl2",              # WebGL 2.0 support for web buildsr
+    "webgpu",              # WebGPU support for modern browsers
+    "x11",                 # Linux display server support
+    "bevy_state",          # For GameState management
+], default-features = false }  # Disable default features to minimize size
+
+# Audio system that works with WASM
 bevy_kira_audio = { version = "0.21.0", features = ["flac"], default-features = false }
+# 2D physics engine for ball and paddle physics
 bevy_rapier2d = "0.28.0"
+# Random number generation for game mechanics
 rand = "0.8.5"
 
-# Enable max optimizations for all dependencies in release builds
+# Release build optimization settings
 [profile.release]
-opt-level = 3          # Maximum optimization
-lto = true            # Enable link-time optimization
-panic = 'abort'       # Abort on panic for smaller binary size
-strip = true          # Strip symbols from binary
-overflow-checks = false  # Disable integer overflow checks
+opt-level = 'z'          # Optimize for size rather than speed
+lto = true              # Enable link-time optimization
+panic = 'abort'         # Remove panic handling code
+strip = true           # Strip symbols from binary
+overflow-checks = false # Disable integer overflow checks
 
-# Optimize all dependencies even in debug builds for faster runs
+# Optimize dependencies even in debug builds
 [profile.dev.package."*"]
-opt-level = 3
+opt-level = 3           # Maximum optimization for dependencies
 
+# Debug build settings for the main package
 [profile.dev]
-opt-level = 1  # Minimum optimization for primary package
+opt-level = 1          # Minimal optimization for faster compilation

@@ -76,7 +76,7 @@ fn spawn_splash_screen(mut commands: Commands) {
         .with_children(|parent| {
             // Game title
             parent.spawn((
-                Text::new("Rusty Pong"),
+                Text::new("RUSTY PONG"),
                 TextFont {
                     font_size: 80.0, // Large, prominent title
                     ..default()
