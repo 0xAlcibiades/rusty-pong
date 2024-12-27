@@ -117,9 +117,9 @@ struct ScoreText {
 
 /// Enum to differentiate between different score UI elements
 enum ScoreKind {
-    P1,     // Player 1's score text
-    P2,     // Player 2's score text
-    Root,   // The container node
+    P1,   // Player 1's score text
+    P2,   // Player 2's score text
+    Root, // The container node
 }
 
 /// Initializes the Score resource at startup.
@@ -143,7 +143,9 @@ fn setup_score_ui(mut commands: Commands) {
                 flex_direction: FlexDirection::Row,
                 ..default()
             },
-            ScoreText { kind: ScoreKind::Root }, // Mark for cleanup
+            ScoreText {
+                kind: ScoreKind::Root,
+            }, // Mark for cleanup
         ))
         .with_children(|parent| {
             // Player 1 score text
@@ -158,7 +160,9 @@ fn setup_score_ui(mut commands: Commands) {
                     margin: UiRect::right(Val::Px(20.0)),
                     ..default()
                 },
-                ScoreText { kind: ScoreKind::P1 },
+                ScoreText {
+                    kind: ScoreKind::P1,
+                },
             ));
 
             // Player 2 score text
@@ -173,7 +177,9 @@ fn setup_score_ui(mut commands: Commands) {
                     margin: UiRect::left(Val::Px(20.0)),
                     ..default()
                 },
-                ScoreText { kind: ScoreKind::P2 },
+                ScoreText {
+                    kind: ScoreKind::P2,
+                },
             ));
         });
 }
