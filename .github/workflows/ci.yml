@@ -29,6 +29,10 @@ jobs:
             flags: "--all-features"
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
@@ -50,6 +54,10 @@ jobs:
       LLVMCOV_VERSION: 0.5.14
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
@@ -74,6 +82,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-hack
       - uses: Swatinem/rust-cache@v2
@@ -87,6 +99,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
       - uses: dtolnay/rust-toolchain@clippy
       - uses: Swatinem/rust-cache@v2
         with:
@@ -98,6 +114,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
         with:
@@ -111,6 +131,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
@@ -118,7 +142,7 @@ jobs:
 
   build-and-deploy:
     name: Build and Deploy
-    needs: [test, coverage, feature-checks, clippy, docs, fmt]
+    needs: [ test, coverage, feature-checks, clippy, docs, fmt ]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
     permissions:
@@ -126,29 +150,27 @@ jobs:
     concurrency: ci-${{ github.ref }}
     steps:
       - uses: actions/checkout@v4
-
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-
       - name: Build wasm
         run: |
           cargo build --release --target wasm32-unknown-unknown
           wasm-bindgen --out-dir ./dist --target web target/wasm32-unknown-unknown/release/rusty_pong.wasm
-
       - name: Prepare deployment
         run: |
           mkdir -p dist/assets
           cp -r assets/* dist/assets/
           cp web/index.html dist/
-
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
