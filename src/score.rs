@@ -5,6 +5,7 @@
 //! - Serve mechanics and timing
 //! - Ball spawning on points
 //! - Score UI rendering
+//! - Victory conditions and game reset
 //!
 //! The scoring system follows traditional ping-pong rules with
 //! serve switching and deuce handling.
@@ -69,6 +70,40 @@ impl Score {
             self.server_is_p1 = !self.server_is_p1;
             self.serve_count = 0;
         }
+    }
+
+    /// Checks if the game has reached a victory condition
+    ///
+    /// Victory is achieved when:
+    /// - A player reaches 11 or more points AND
+    /// - They have a lead of at least 2 points
+    ///
+    /// # Returns
+    /// `true` if either player has won, `false` if the game should continue
+    pub fn check_victory(&self) -> bool {
+        if self.p1 >= 11 && self.p1 >= self.p2 + 2 {
+            return true;
+        }
+        if self.p2 >= 11 && self.p2 >= self.p1 + 2 {
+            return true;
+        }
+        false
+    }
+
+    /// Resets the game state to initial values for a new game
+    ///
+    /// This:
+    /// - Clears both players' scores
+    /// - Randomly assigns a new server
+    /// - Resets serve count and timer
+    /// - Clears any pending serve flags
+    pub fn reset(&mut self) {
+        self.p1 = 0;
+        self.p2 = 0;
+        self.server_is_p1 = rand::thread_rng().gen_bool(0.5);
+        self.serve_count = 0;
+        self.serve_timer.reset();
+        self.should_serve = false;
     }
 }
 
@@ -152,6 +187,27 @@ fn on_resume(
             &mut materials,
             score.server_is_p1,
         );
+    }
+}
+
+/// Checks for victory conditions and transitions to game over state
+///
+/// When victory is achieved:
+/// 1. Despawns the ball to prevent further scoring
+/// 2. Transitions to the GameOver state
+fn check_victory(
+    score: Res<Score>,
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<GameState>>,
+    ball_query: Query<Entity, With<Ball>>,
+) {
+    if score.check_victory() {
+        // Despawn the ball to prevent further scoring
+        for entity in ball_query.iter() {
+            commands.entity(entity).despawn();
+        }
+        // Transition to game over state
+        next_state.set(GameState::GameOver);
     }
 }
 
@@ -253,10 +309,11 @@ impl Plugin for ScorePlugin {
             .add_systems(OnEnter(GameState::Playing), on_resume)
             // Update score display whenever scores change
             .add_systems(Update, update_score_display)
-            // Handle scoring and serving during gameplay
+            // Handle scoring, serving, and victory checking during gameplay
             .add_systems(
                 Update,
-                (handle_scoring, handle_serve_delay).run_if(in_state(GameState::Playing)),
+                (handle_scoring, handle_serve_delay, check_victory)
+                    .run_if(in_state(GameState::Playing)),
             );
     }
 }
