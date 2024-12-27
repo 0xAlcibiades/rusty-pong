@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rusty Pong</title>
     <style>
+        /* Global Variables */
         :root {
-            --bg-color: #0f0f0f;
-            --text-color: #ffffff;
-            --accent-color: #ffffff;
+            --bg-color: #0f0f0f; /* Dark background color */
+            --text-color: #ffffff; /* White text color */
+            --accent-color: #ffffff; /* Accent color for UI elements */
         }
 
+        /* Body Styles */
         body {
             margin: 0;
             padding: 0;
@@ -20,25 +22,36 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
+            justify-content: center; /* Center the content vertically */
+            height: 100vh;
             line-height: 1.6;
         }
 
+        /* Game Container Styles */
         #game-container {
-            position: relative;
-            width: 100%;
-            max-width: 800px;
-            aspect-ratio: 16/10;
+            position: relative; /* Container for canvas with absolute positioning */
+            width: 80vw;  /* Container width as a percentage of the viewport width */
+            height: 50vh; /* Container height as a percentage of the viewport height */
             margin: 20px auto;
-        }
-
-        canvas {
+            display: flex;
+            justify-content: center;
+            align-items: center;
             background-color: black;
-            width: 100%;
-            height: 100%;
+            overflow: hidden; /* Prevent the canvas from overflowing the container */
         }
 
+        /* Canvas Styles */
+        canvas {
+            position: absolute; /* Ensure the canvas stays inside the container */
+            top: 0; /* Align canvas to the top */
+            left: 0; /* Align canvas to the left */
+            width: 100%; /* Make the canvas width equal to the container's width */
+            height: 100%; /* Make the canvas height equal to the container's height */
+            object-fit: contain; /* Ensure aspect ratio is maintained */
+            display: block; /* Prevent any space around the canvas */
+        }
+
+        /* Loading Text Styles */
         #loading {
             position: absolute;
             top: 50%;
@@ -46,8 +59,10 @@
             transform: translate(-50%, -50%);
             font-size: 1.5em;
             color: var(--accent-color);
+            z-index: 10;
         }
 
+        /* Controls Section Styles */
         .controls {
             margin: 20px;
             padding: 20px;
@@ -57,14 +72,16 @@
             text-align: center;
         }
 
+        /* Header Styles */
         h1 {
             color: var(--accent-color);
             text-align: center;
             font-size: 2.5em;
-            margin-bottom: 0;
+            margin: 20px 0;
             letter-spacing: 0.2em;
         }
 
+        /* Keyboard Shortcut Styling */
         kbd {
             background-color: #333;
             border-radius: 3px;
@@ -73,8 +90,10 @@
             font-family: monospace;
         }
 
+        /* Footer Styling */
         .footer {
             margin-top: 20px;
+            margin-bottom: 20px;
             font-size: 0.8em;
             opacity: 0.7;
         }
@@ -88,6 +107,7 @@
             text-decoration: underline;
         }
 
+        /* Responsive Styles */
         @media (max-width: 600px) {
             h1 { font-size: 1.8em; }
             .controls { margin: 10px; padding: 10px; }
@@ -97,13 +117,16 @@
 <body>
 <h1>RUSTY PONG</h1>
 
+<!-- Game Container (where canvas will render) -->
 <div id="game-container">
     <canvas id="bevy">
         Javascript and WebGL support required
     </canvas>
+    <!-- Loading Text (will be hidden after game loads) -->
     <div id="loading">Loading...</div>
 </div>
 
+<!-- Controls Section -->
 <div class="controls">
     <p>
         <kbd>W</kbd>/<kbd>S</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd> - Move Paddle<br>
@@ -112,11 +135,13 @@
     </p>
 </div>
 
+<!-- Footer Section -->
 <div class="footer">
     Made with Bevy & Rust • <a href="https://github.com/0xAlcibiades/rusty-pong">Source</a>
 </div>
 
-<script>
+<!-- Game Initialization Script -->
+<script type="module">
     // Initialize loading animation
     const loading = document.getElementById('loading');
     let dots = 0;
@@ -125,21 +150,67 @@
         loading.textContent = 'Loading' + '.'.repeat(dots);
     }, 500);
 
-    // Load and start the Bevy game
-    async function run() {
-        const script = document.createElement('script');
-        script.src = 'rusty_pong.js';
-        script.type = 'module';
+    // Function to resize the canvas to fit inside the game container and maintain aspect ratio
+    function resizeCanvas() {
+        const canvas = document.getElementById('bevy');
+        const container = document.getElementById('game-container');
+        const aspectRatio = 16 / 10;  // 16:10 aspect ratio
 
-        script.onload = () => {
-            clearInterval(loadingInterval);
-            loading.style.display = 'none';
-        };
+        const containerWidth = container.offsetWidth;
+        const containerHeight = container.offsetHeight;
 
-        document.head.appendChild(script);
+        // Calculate the new width and height based on aspect ratio
+        let width = containerWidth;
+        let height = width / aspectRatio;
+
+        // If the height exceeds the container height, adjust width and height accordingly
+        if (height > containerHeight) {
+            height = containerHeight;
+            width = height * aspectRatio;
+        }
+
+        // Set the canvas width and height dynamically
+        canvas.width = width;
+        canvas.height = height;
     }
 
-    run();
+    // Load and start the WASM game (rust_pong.js)
+    async function init() {
+        try {
+            // Import the WASM initialization function
+            const { default: init } = await import('./rust_pong.js');  // Path to WASM JS file
+
+            // Initialize the WASM module
+            await init();
+
+            // Resize canvas after game is initialized
+            resizeCanvas();
+
+            // Stop the loading indicator and hide loading text
+            clearInterval(loadingInterval);
+            loading.style.display = 'none';  // Hide the loading message
+
+            // Show the game container (in case it was hidden during loading)
+            document.getElementById('game-container').style.display = 'block';
+
+            // Add window resize listener to dynamically adjust canvas on window resize
+            window.addEventListener('resize', resizeCanvas);
+
+        } catch (error) {
+            console.error('Failed to load WASM:', error);
+
+            // Stop the loading indicator and display error message
+            clearInterval(loadingInterval);
+            loading.textContent = 'Failed to load game. Please check the console for details.';
+            loading.style.color = '#ff4444';  // Change text color to indicate an error
+
+            // Hide the game container if an error occurs
+            document.getElementById('game-container').style.display = 'none';
+        }
+    }
+
+    // Start the game initialization
+    init();
 </script>
 </body>
 </html>
