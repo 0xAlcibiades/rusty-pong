@@ -1,9 +1,9 @@
+use crate::GameState;
 use bevy::app::{App, Plugin, Update};
-use bevy::asset::{Assets, AssetServer, Handle};
+use bevy::asset::{AssetServer, Assets, Handle};
 use bevy::input::ButtonInput;
 use bevy::prelude::{KeyCode, OnEnter, OnExit, ParamSet, Res, ResMut, Resource};
 use bevy_kira_audio::{Audio, AudioControl, AudioInstance, AudioPlugin, AudioTween};
-use crate::GameState;
 
 /// Plugin that manages background music functionality, including playing, pausing,
 /// and toggling music based on game state and user input.
