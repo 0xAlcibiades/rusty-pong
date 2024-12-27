@@ -1,5 +1,8 @@
+# CI workflow for Rusty Pong
+# Handles testing, code quality checks, and web deployment
 name: CI
 
+# Trigger on pushes to master branch, version tags, and PRs
 on:
   push:
     branches:
@@ -10,11 +13,45 @@ on:
     types: [ opened, synchronize, reopened ]
     branches:
       - master
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Check code formatting - fastest check
+  fmt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  # Run clippy lints for code quality - second fastest check
+  clippy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
+      - uses: dtolnay/rust-toolchain@clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - run: cargo clippy --workspace --all-targets --all-features
+
+  # Run tests across multiple Rust toolchains and feature combinations
   test:
+    needs: [clippy, fmt]
     name: test ${{ matrix.rust }} ${{ matrix.flags }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -24,8 +61,7 @@ jobs:
         rust: [ "stable", "beta", "nightly", "1.82" ] # MSRV
         flags: [ "--no-default-features", "", "--all-features" ]
         exclude:
-          # Skip because some features have highest MSRV.
-          - rust: "1.82" # MSRV
+          - rust: "1.82"
             flags: "--all-features"
     steps:
       - uses: actions/checkout@v4
@@ -39,15 +75,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-      # Only run tests on the latest stable and above
       - name: check
-        if: ${{ matrix.rust == '1.82' }} # MSRV
+        if: ${{ matrix.rust == '1.82' }}
         run: cargo check --workspace ${{ matrix.flags }}
       - name: test
-        if: ${{ matrix.rust != '1.82' }} # MSRV
+        if: ${{ matrix.rust != '1.82' }}
         run: cargo test --workspace ${{ matrix.flags }}
 
+  # Generate and upload code coverage information
   coverage:
+    needs: [test]
     name: Code Coverage
     runs-on: ubuntu-latest
     env:
@@ -77,7 +114,9 @@ jobs:
           files: lcov.info
           fail_ci_if_error: false
 
+  # Check all possible feature combinations work
   feature-checks:
+    needs: [test]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -94,22 +133,9 @@ jobs:
       - name: cargo hack
         run: cargo hack check --feature-powerset --depth 2
 
-  clippy:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
-      - uses: dtolnay/rust-toolchain@clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-      - run: cargo clippy --workspace --all-targets --all-features
-
+  # Generate and test documentation
   docs:
+    needs: [test]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -126,23 +152,10 @@ jobs:
         env:
           RUSTDOCFLAGS: "--cfg docsrs"
 
-  fmt:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
-      - uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt
-      - run: cargo fmt --all --check
-
+  # Build WASM bundle and deploy to GitHub Pages
   build-and-deploy:
     name: Build and Deploy
-    needs: [ test, coverage, feature-checks, clippy, docs, fmt ]
+    needs: [ test, coverage, feature-checks, docs ]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
     permissions:
@@ -153,19 +166,25 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libasound2-dev libudev-dev
+          sudo apt-get install -y pkg-config libasound2-dev libudev-dev binaryen
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+      - name: Install Rust dependencies
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-bindgen-cli
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-      - name: Build wasm
+      - name: Build and optimize wasm
         run: |
           cargo build --release --target wasm32-unknown-unknown
+          mkdir -p dist
           wasm-bindgen --out-dir ./dist --target web target/wasm32-unknown-unknown/release/rusty_pong.wasm
+          find ./dist -name "*.wasm" -exec wasm-opt -O3 -o {}.opt {} \; -exec mv {}.opt {} \;
       - name: Prepare deployment
         run: |
           mkdir -p dist/assets
@@ -174,6 +193,6 @@ jobs:
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: dist       # The folder the action should deploy
-          branch: gh-pages  # The branch the action should deploy to
-          clean: true      # Automatically remove deleted files from deploy branch
+          folder: dist
+          branch: gh-pages
+          clean: true

@@ -88,6 +88,7 @@ This project was created as a learning exercise to understand:
 - Game state management
 - Audio handling in games
 - AI behavior implementation
+- The state of WASM game development with Rust
 
 ## License
 
