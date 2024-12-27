@@ -1,216 +1,356 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rusty Pong</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- SEO and Social Media Cards
+       - Uses Open Graph and Twitter Card meta tags for rich previews
+       - Image is stored in assets directory for organization
+       - Custom social card screenshot shows actual gameplay
+  -->
+    <title>Rusty Pong - A minimalist take on a classic</title>
+    <meta name="title" content="Rusty Pong - A minimalist take on a classic" />
+    <meta
+      name="description"
+      content="Challenge an AI opponent in this minimalist Pong implementation built with Bevy and Rust. Real-time trajectory prediction and physics-based gameplay."
+    />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://0xalcibiades.github.io/rusty-pong/"
+    />
+    <meta
+      property="og:title"
+      content="Rusty Pong - A minimalist take on a classic"
+    />
+    <meta
+      property="og:description"
+      content="Challenge an AI opponent in this minimalist Pong implementation built with Bevy and Rust. Real-time trajectory prediction and physics-based gameplay."
+    />
+    <meta
+      property="og:image"
+      content="https://0xalcibiades.github.io/rusty-pong/assets/social-card.png"
+    />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta
+      property="twitter:url"
+      content="https://0xalcibiades.github.io/rusty-pong/"
+    />
+    <meta
+      property="twitter:title"
+      content="Rusty Pong - A minimalist take on a classic"
+    />
+    <meta
+      property="twitter:description"
+      content="Challenge an AI opponent in this minimalist Pong implementation built with Bevy and Rust. Real-time trajectory prediction and physics-based gameplay."
+    />
+    <meta
+      property="twitter:image"
+      content="https://0xalcibiades.github.io/rusty-pong/assets/social-card.png"
+    />
+
+    <!-- Additional SEO -->
+    <meta
+      name="keywords"
+      content="pong, rust game, bevy engine, browser game, webassembly game, rust wasm"
+    />
+    <meta name="author" content="0xAlcibiades" />
+    <meta name="theme-color" content="#0f0f0f" />
+    <link rel="canonical" href="https://0xalcibiades.github.io/rusty-pong/" />
+
+    <!-- Using Fira Mono to match Bevy's aesthetic -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fira+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
     <style>
-        /* Global Variables */
-        :root {
-            --bg-color: #0f0f0f; /* Dark background color */
-            --text-color: #ffffff; /* White text color */
-            --accent-color: #ffffff; /* Accent color for UI elements */
-        }
+      /* Global Variables - Consistent color scheme throughout the app */
+      :root {
+        --bg-color: #0f0f0f;
+        --text-color: #ffffff;
+        --accent-color: #ffffff;
+        --rust-orange: #e43d1a; /* Used for highlights and error states */
+      }
 
-        /* Body Styles */
+      /* Base Layout - Single page, vertical stack, no scrolling */
+      body {
+        margin: 0;
+        padding: 0 0 1rem 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: "Fira Mono", monospace;
+        line-height: 1.6;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow: hidden; /* Prevents scrolling for clean game experience */
+      }
+
+      /* Header Section - Title and Description */
+      .header {
+        text-align: center;
+        margin: 1rem 0 0.5rem 0;
+      }
+
+      h1 {
+        color: var(--accent-color);
+        font-size: 2.5em;
+        letter-spacing: 0.2em;
+        margin: 0;
+        font-weight: 700;
+      }
+
+      .tagline {
+        color: var(--rust-orange);
+        font-size: 1.1em;
+        margin: 0.25rem 0;
+        opacity: 0.9;
+      }
+
+      .description {
+        margin: 0.5rem 2rem;
+        text-align: center;
+        font-size: 0.9em;
+        opacity: 0.8;
+        line-height: 1.4;
+      }
+
+      /* Game Container - Houses the Bevy Canvas */
+      #pong-game-canvas {
+        width: 80vw;
+        height: 60vh;
+        background: black;
+        position: relative;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        margin: 0.5rem 0;
+      }
+
+      /* Canvas Handling - Ensures Bevy canvas renders correctly */
+      body > canvas {
+        display: none !important; /* Prevents unwanted canvas rendering */
+      }
+
+      #pong-game-canvas canvas {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        outline: none !important; /* Removes focus outline for screenshots */
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      /* Controls Section - Game Instructions */
+      .controls {
+        margin: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.05);
+        font-size: 0.9em;
+      }
+
+      /* Keyboard Key Styling */
+      kbd {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 2px 6px;
+        font-family: "Fira Mono", monospace;
+        font-size: 0.9em;
+      }
+
+      /* Footer Section - Credits and Links */
+      .footer {
+        margin: 0.5rem;
+        font-size: 0.85em;
+        opacity: 0.7;
+        text-align: center;
+        line-height: 1.4;
+      }
+
+      .footer a {
+        color: var(--accent-color);
+        text-decoration: none;
+      }
+
+      .footer a:hover {
+        opacity: 0.8;
+      }
+
+      /* Heart Icon - Matches rust-orange color scheme */
+      .love {
+        color: #e43d1a;
+      }
+
+      /* Loading and Start Button Styles */
+      #loading,
+      #start-button {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+      }
+
+      #loading {
+        font-size: 1.5em;
+        color: var(--accent-color);
+      }
+
+      #start-button {
+        padding: 0.75rem 1.5rem;
+        font-size: 1.2em;
+        background-color: rgba(255, 255, 255, 0.1);
+        color: var(--accent-color);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: "Fira Mono", monospace;
+      }
+
+      #start-button:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+
+      /* Mobile Responsiveness */
+      @media (max-width: 600px) {
         body {
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: 'Courier New', monospace;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center; /* Center the content vertically */
-            height: 100vh;
-            line-height: 1.6;
+          padding: 0.5rem;
         }
-
-        /* Game Container Styles */
-        #game-container {
-            position: relative; /* Container for canvas with absolute positioning */
-            width: 80vw;  /* Container width as a percentage of the viewport width */
-            height: 50vh; /* Container height as a percentage of the viewport height */
-            margin: 20px auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: black;
-            overflow: hidden; /* Prevent the canvas from overflowing the container */
-        }
-
-        /* Canvas Styles */
-        canvas {
-            position: absolute; /* Ensure the canvas stays inside the container */
-            top: 0; /* Align canvas to the top */
-            left: 0; /* Align canvas to the left */
-            width: 100%; /* Make the canvas width equal to the container's width */
-            height: 100%; /* Make the canvas height equal to the container's height */
-            object-fit: contain; /* Ensure aspect ratio is maintained */
-            display: block; /* Prevent any space around the canvas */
-        }
-
-        /* Loading Text Styles */
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.5em;
-            color: var(--accent-color);
-            z-index: 10;
-        }
-
-        /* Controls Section Styles */
-        .controls {
-            margin: 20px;
-            padding: 20px;
-            border: 1px solid var(--accent-color);
-            border-radius: 4px;
-            max-width: 600px;
-            text-align: center;
-        }
-
-        /* Header Styles */
         h1 {
-            color: var(--accent-color);
-            text-align: center;
-            font-size: 2.5em;
-            margin: 20px 0;
-            letter-spacing: 0.2em;
+          font-size: 1.8em;
         }
-
-        /* Keyboard Shortcut Styling */
-        kbd {
-            background-color: #333;
-            border-radius: 3px;
-            border: 1px solid #666;
-            padding: 2px 6px;
-            font-family: monospace;
+        .controls {
+          padding: 0.5rem;
+          font-size: 0.8em;
         }
-
-        /* Footer Styling */
-        .footer {
-            margin-top: 20px;
-            margin-bottom: 20px;
-            font-size: 0.8em;
-            opacity: 0.7;
+        .description {
+          font-size: 0.8em;
+          margin: 0.25rem 1rem;
         }
-
-        .footer a {
-            color: var(--accent-color);
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-
-        /* Responsive Styles */
-        @media (max-width: 600px) {
-            h1 { font-size: 1.8em; }
-            .controls { margin: 10px; padding: 10px; }
-        }
+      }
     </style>
-</head>
-<body>
-<h1>RUSTY PONG</h1>
+  </head>
+  <body>
+    <div class="header">
+      <h1>RUSTY PONG</h1>
+      <div class="tagline">A minimalist take on a classic</div>
+      <div class="description">
+        Two paddles, one ball, endless possibilities. Challenge an AI opponent
+        that predicts ball trajectories in real-time.
+      </div>
+    </div>
 
-<!-- Game Container (where canvas will render) -->
-<div id="game-container">
-    <canvas id="bevy">
-        Javascript and WebGL support required
-    </canvas>
-    <!-- Loading Text (will be hidden after game loads) -->
-    <div id="loading">Loading...</div>
-</div>
+    <div id="pong-game-canvas"></div>
 
-<!-- Controls Section -->
-<div class="controls">
-    <p>
-        <kbd>W</kbd>/<kbd>S</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd> - Move Paddle<br>
-        <kbd>Space</kbd> - Pause/Start<br>
-        <kbd>M</kbd> - Toggle Music
-    </p>
-</div>
+    <div class="controls">
+      <kbd>W</kbd>/<kbd>S</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd> - Move Paddle
+      &nbsp; <kbd>Space</kbd> - Pause/Start &nbsp; <kbd>M</kbd> - Toggle Music
+    </div>
 
-<!-- Footer Section -->
-<div class="footer">
-    Made with Bevy & Rust • <a href="https://github.com/0xAlcibiades/rusty-pong">Source</a>
-</div>
+    <div class="footer">
+      Made with <span class="love">♥</span> by
+      <a href="https://github.com/0xAlcibiades">0xAlcibiades</a> • Powered by
+      <a href="https://bevyengine.org/">Bevy</a> and
+      <a href="https://www.rust-lang.org/">Rust</a> •
+      <a href="https://github.com/0xalcibiades/rusty-pong">Source</a>
+    </div>
+    <script type="module">
+      // Get references to container for Bevy canvas
+      const gameContainer = document.getElementById("pong-game-canvas");
 
-<!-- Game Initialization Script -->
-<script type="module">
-    // Initialize loading animation
-    const loading = document.getElementById('loading');
-    let dots = 0;
-    const loadingInterval = setInterval(() => {
-        dots = (dots + 1) % 4;
-        loading.textContent = 'Loading' + '.'.repeat(dots);
-    }, 500);
+      // Create and add loading indicator
+      const loading = document.createElement("div");
+      loading.id = "loading";
+      loading.textContent = "Loading...";
+      loading.style.display = "none";
+      gameContainer.appendChild(loading);
 
-    // Function to resize the canvas to fit inside the game container and maintain aspect ratio
-    function resizeCanvas() {
-        const canvas = document.getElementById('bevy');
-        const container = document.getElementById('game-container');
-        const aspectRatio = 16 / 10;  // 16:10 aspect ratio
+      // Create and add start button
+      const playButton = document.createElement("button");
+      playButton.id = "start-button";
+      playButton.textContent = "Click to Load Game";
+      gameContainer.appendChild(playButton);
 
-        const containerWidth = container.offsetWidth;
-        const containerHeight = container.offsetHeight;
-
-        // Calculate the new width and height based on aspect ratio
-        let width = containerWidth;
-        let height = width / aspectRatio;
-
-        // If the height exceeds the container height, adjust width and height accordingly
-        if (height > containerHeight) {
-            height = containerHeight;
-            width = height * aspectRatio;
+      // Helper function to move canvas into container
+      const moveCanvas = () => {
+        const canvases = document.getElementsByTagName("canvas");
+        for (let canvas of canvases) {
+          if (canvas.parentElement !== gameContainer) {
+            gameContainer.appendChild(canvas);
+          }
         }
+      };
 
-        // Set the canvas width and height dynamically
-        canvas.width = width;
-        canvas.height = height;
-    }
+      async function startGame() {
+        let observer = null;
 
-    // Load and start the WASM game (rust_pong.js)
-    async function init() {
         try {
-            // Import the WASM initialization function
-            const { default: init } = await import('./rust_pong.js');  // Path to WASM JS file
+          loading.style.display = "block";
+          playButton.style.display = "none";
 
-            // Initialize the WASM module
-            await init();
+          // Initialize audio context for game sounds
+          const audioContext = new (window.AudioContext ||
+            window.webkitAudioContext)();
+          await audioContext.resume();
 
-            // Resize canvas after game is initialized
-            resizeCanvas();
+          // Watch for canvas creation and move it to container
+          observer = new MutationObserver((mutations) => {
+            for (let mutation of mutations) {
+              if (mutation.addedNodes) {
+                mutation.addedNodes.forEach((node) => {
+                  if (node.nodeName === "CANVAS") {
+                    gameContainer.appendChild(node);
+                  }
+                });
+              }
+            }
+          });
 
-            // Stop the loading indicator and hide loading text
-            clearInterval(loadingInterval);
-            loading.style.display = 'none';  // Hide the loading message
+          // Start observing the document body for canvas creation
+          observer.observe(document.body, { childList: true });
 
-            // Show the game container (in case it was hidden during loading)
-            document.getElementById('game-container').style.display = 'block';
+          // Initialize the Bevy WASM module
+          const { default: init } = await import("./rusty_pong.js");
+          await init();
 
-            // Add window resize listener to dynamically adjust canvas on window resize
-            window.addEventListener('resize', resizeCanvas);
-
+          // Ensure canvas is in the right place
+          moveCanvas();
         } catch (error) {
-            console.error('Failed to load WASM:', error);
-
-            // Stop the loading indicator and display error message
-            clearInterval(loadingInterval);
-            loading.textContent = 'Failed to load game. Please check the console for details.';
-            loading.style.color = '#ff4444';  // Change text color to indicate an error
-
-            // Hide the game container if an error occurs
-            document.getElementById('game-container').style.display = 'none';
+          // Handle Bevy's control flow exception (not a real error)
+          if (error.message?.includes("Using exceptions for control flow")) {
+            loading.style.display = "none";
+          } else {
+            // Handle actual errors
+            console.error("Failed to load WASM:", error);
+            loading.textContent =
+              "Failed to load game. Please refresh and try again.";
+            loading.style.color = "#e43d1a";
+          }
+        } finally {
+          // Clean up observer if it was created
+          if (observer) {
+            observer.disconnect();
+          }
         }
-    }
+      }
 
-    // Start the game initialization
-    init();
-</script>
-</body>
+      // Start game when button is clicked
+      playButton.addEventListener("click", startGame);
+
+      // Add passive event listeners to prevent browser warnings
+      document.addEventListener("touchstart", () => {}, { passive: true });
+      document.addEventListener("wheel", () => {}, { passive: true });
+    </script>
+  </body>
 </html>
