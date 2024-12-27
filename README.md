@@ -3,6 +3,10 @@
 A classic Pong implementation built with the Bevy game engine and Rapier physics. Created as a holiday learning project
 during Christmas 2024, focusing on creating a complete game loop in the most rusty way possible.
 
+<p style="text-align: center">
+  <strong><a href="https://0xalcibiades.github.io/rusty-pong/">Play it here!</a></strong>
+</p>
+
 ![Rusty Pong](assets/social-card.png)
 
 ## Game Overview
