@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rusty Pong</title>
+    <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --text-color: #ffffff;
+            --accent-color: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 16/10;
+            margin: 20px auto;
+        }
+
+        canvas {
+            background-color: black;
+            width: 100%;
+            height: 100%;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5em;
+            color: var(--accent-color);
+        }
+
+        .controls {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid var(--accent-color);
+            border-radius: 4px;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 0;
+            letter-spacing: 0.2em;
+        }
+
+        kbd {
+            background-color: #333;
+            border-radius: 3px;
+            border: 1px solid #666;
+            padding: 2px 6px;
+            font-family: monospace;
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        .footer a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8em; }
+            .controls { margin: 10px; padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+<h1>RUSTY PONG</h1>
+
+<div id="game-container">
+    <canvas id="bevy">
+        Javascript and WebGL support required
+    </canvas>
+    <div id="loading">Loading...</div>
+</div>
+
+<div class="controls">
+    <p>
+        <kbd>W</kbd>/<kbd>S</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd> - Move Paddle<br>
+        <kbd>Space</kbd> - Pause/Start<br>
+        <kbd>M</kbd> - Toggle Music
+    </p>
+</div>
+
+<div class="footer">
+    Made with Bevy & Rust • <a href="https://github.com/0xAlcibiades/rusty-pong">Source</a>
+</div>
+
+<script>
+    // Initialize loading animation
+    const loading = document.getElementById('loading');
+    let dots = 0;
+    const loadingInterval = setInterval(() => {
+        dots = (dots + 1) % 4;
+        loading.textContent = 'Loading' + '.'.repeat(dots);
+    }, 500);
+
+    // Load and start the Bevy game
+    async function run() {
+        const script = document.createElement('script');
+        script.src = 'rusty_pong.js';
+        script.type = 'module';
+
+        script.onload = () => {
+            clearInterval(loadingInterval);
+            loading.style.display = 'none';
+        };
+
+        document.head.appendChild(script);
+    }
+
+    run();
+</script>
+</body>
+</html>
