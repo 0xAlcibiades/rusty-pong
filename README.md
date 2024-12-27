@@ -3,6 +3,8 @@
 A classic Pong implementation built with the Bevy game engine and Rapier physics. Created as a holiday learning project
 during Christmas 2024, focusing on creating a complete game loop in the most rusty way possible.
 
+![Rusty Pong](assets/social-card.png)
+
 ## Game Overview
 
 Two paddles, one ball, endless possibilities. This minimalist take on Pong emphasizes smooth physics-based gameplay with
