@@ -34,7 +34,7 @@ struct MusicState {
 impl Default for MusicState {
     fn default() -> Self {
         Self {
-            playing: false, // Start with music disabled by default
+            playing: false, // Start with music enabled by default
             handle: None,   // No audio instance at initialization
         }
     }
@@ -46,31 +46,12 @@ impl Plugin for MusicPlugin {
             .init_resource::<MusicState>()
             // System to handle manual music toggling via 'M' key
             .add_systems(Update, handle_music_toggle)
-            // Systems to manage music across different game states
-            .add_systems(OnEnter(GameState::Playing), start_background_music)
-            .add_systems(OnExit(GameState::Playing), pause_background_music)
+            // We want to pause it for the pause menu and game over screen
             .add_systems(OnEnter(GameState::Paused), pause_background_music)
-            .add_systems(OnExit(GameState::Paused), resume_background_music);
-    }
-}
-
-/// Initiates background music playback if it's not already playing.
-///
-/// This system:
-/// 1. Checks if music is currently disabled
-/// 2. Loads the music asset
-/// 3. Starts playback in a looped configuration
-/// 4. Stores the audio handle for future reference
-fn start_background_music(
-    audio: Res<Audio>,
-    asset_server: Res<AssetServer>,
-    mut music_state: ResMut<MusicState>,
-) {
-    if !music_state.playing {
-        // Create a new looped audio instance and store its handle
-        let handle = audio.play(asset_server.load("pong.flac")).looped().handle();
-        music_state.handle = Some(handle);
-        music_state.playing = true;
+            .add_systems(OnEnter(GameState::GameOver), pause_background_music)
+            // And resume it when the player resumes playing
+            .add_systems(OnExit(GameState::Paused), resume_background_music)
+            .add_systems(OnExit(GameState::GameOver), resume_background_music);
     }
 }
 
