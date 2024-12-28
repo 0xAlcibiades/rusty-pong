@@ -38,7 +38,7 @@ const DASH_GAP: f32 = 0.4; // Gap between dashes
 
 /// Physics settings for the walls.
 /// Walls are bouncy to create more interesting gameplay.
-const WALL_RESTITUTION: f32 = 1.5; // Wall bounciness (>1 means adding energy)
+const WALL_RESTITUTION: f32 = 2.0; // Wall bounciness (>1 means adding energy)
 
 /// Creates the black background color resource.
 /// This sets the clear color for the game's rendering.
