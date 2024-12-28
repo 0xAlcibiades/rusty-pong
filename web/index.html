@@ -282,12 +282,30 @@
       playButton.textContent = "Click to Load Game";
       gameContainer.appendChild(playButton);
 
-      // Helper function to move canvas into container
+      // Helper function to move canvas into container and focus it
       const moveCanvas = () => {
         const canvases = document.getElementsByTagName("canvas");
         for (let canvas of canvases) {
           if (canvas.parentElement !== gameContainer) {
             gameContainer.appendChild(canvas);
+            // Add tabindex to make canvas focusable
+            canvas.setAttribute("tabindex", "0");
+            // Focus the canvas
+            canvas.focus();
+            // Maintain focus when clicking on canvas
+            canvas.addEventListener("mousedown", (e) => {
+              e.preventDefault();
+              canvas.focus();
+            });
+            // Prevent focus loss on mobile touch
+            canvas.addEventListener(
+              "touchstart",
+              (e) => {
+                e.preventDefault();
+                canvas.focus();
+              },
+              { passive: false },
+            );
           }
         }
       };
@@ -304,13 +322,15 @@
             window.webkitAudioContext)();
           await audioContext.resume();
 
-          // Watch for canvas creation and move it to container
+          // Enhanced observer to handle canvas creation and focus
           observer = new MutationObserver((mutations) => {
             for (let mutation of mutations) {
               if (mutation.addedNodes) {
                 mutation.addedNodes.forEach((node) => {
                   if (node.nodeName === "CANVAS") {
                     gameContainer.appendChild(node);
+                    node.setAttribute("tabindex", "0");
+                    node.focus();
                   }
                 });
               }
@@ -324,21 +344,18 @@
           const { default: init } = await import("./rusty_pong.js");
           await init();
 
-          // Ensure canvas is in the right place
+          // Ensure canvas is in the right place and focused
           moveCanvas();
         } catch (error) {
-          // Handle Bevy's control flow exception (not a real error)
           if (error.message?.includes("Using exceptions for control flow")) {
             loading.style.display = "none";
           } else {
-            // Handle actual errors
             console.error("Failed to load WASM:", error);
             loading.textContent =
               "Failed to load game. Please refresh and try again.";
             loading.style.color = "#e43d1a";
           }
         } finally {
-          // Clean up observer if it was created
           if (observer) {
             observer.disconnect();
           }
