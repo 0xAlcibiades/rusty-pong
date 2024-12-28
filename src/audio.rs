@@ -22,22 +22,13 @@ pub struct MusicPlugin;
 ///
 /// The state persists across game state changes to maintain user preferences
 /// for music playback.
-#[derive(Resource)]
+#[derive(Resource, Default)]
 struct MusicState {
     /// Indicates if music should be playing (true) or muted (false)
     playing: bool,
     /// Optional handle to the current audio instance
     /// None if no music has been started or if music was explicitly stopped
     handle: Option<Handle<AudioInstance>>,
-}
-
-impl Default for MusicState {
-    fn default() -> Self {
-        Self {
-            playing: false, // Start with music enabled by default
-            handle: None,   // No audio instance at initialization
-        }
-    }
 }
 
 impl Plugin for MusicPlugin {
