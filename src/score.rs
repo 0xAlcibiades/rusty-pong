@@ -153,10 +153,17 @@ fn setup_score_ui(mut commands: Commands, score: Res<Score>) {
                 flex_direction: FlexDirection::Row,
                 ..default()
             },
-            ScoreText { kind: ScoreKind::Root },
+            ScoreText {
+                kind: ScoreKind::Root,
+            },
         ))
         .with_children(|parent| {
-            spawn_player_score(parent, score.p1, ScoreKind::P1, UiRect::right(Val::Px(20.0)));
+            spawn_player_score(
+                parent,
+                score.p1,
+                ScoreKind::P1,
+                UiRect::right(Val::Px(20.0)),
+            );
             spawn_player_score(parent, score.p2, ScoreKind::P2, UiRect::left(Val::Px(20.0)));
         });
 }
@@ -168,12 +175,7 @@ fn setup_score_ui(mut commands: Commands, score: Res<Score>) {
 /// * `score` - Initial score value to display
 /// * `kind` - Which player's score this represents
 /// * `margin` - Margin settings for positioning
-fn spawn_player_score(
-    parent: &mut ChildBuilder,
-    score: u32,
-    kind: ScoreKind,
-    margin: UiRect,
-) {
+fn spawn_player_score(parent: &mut ChildBuilder, score: u32, kind: ScoreKind, margin: UiRect) {
     parent.spawn((
         Text::new(score.to_string()),
         TextFont {
@@ -181,7 +183,10 @@ fn spawn_player_score(
             ..default()
         },
         TextColor(Color::WHITE),
-        Node { margin, ..default() },
+        Node {
+            margin,
+            ..default()
+        },
         ScoreText { kind },
     ));
 }
@@ -235,7 +240,12 @@ fn on_resume(
     ball_query: Query<Entity, With<Ball>>,
 ) {
     if ball_query.is_empty() && !score.should_serve {
-        create_ball(&mut commands, &mut meshes, &mut materials, score.server_is_p1);
+        create_ball(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            score.server_is_p1,
+        );
     }
 }
 
@@ -256,7 +266,12 @@ fn handle_serve_delay(
         score.serve_timer.tick(time.delta());
 
         if score.serve_timer.just_finished() {
-            create_ball(&mut commands, &mut meshes, &mut materials, score.server_is_p1);
+            create_ball(
+                &mut commands,
+                &mut meshes,
+                &mut materials,
+                score.server_is_p1,
+            );
             score.should_serve = false;
             score.serve_timer.reset();
         }
@@ -333,15 +348,18 @@ impl Plugin for ScorePlugin {
         app
             // Resource initialization
             .add_systems(Startup, init_score)
-
             // UI management
-            .add_systems(OnEnter(GameState::Playing), (setup_score_ui, update_score_display))
+            .add_systems(
+                OnEnter(GameState::Playing),
+                (setup_score_ui, update_score_display),
+            )
             .add_systems(OnExit(GameState::Playing), cleanup_score_ui)
             .add_systems(OnEnter(GameState::Playing), on_resume)
-
             // Score display updates
-            .add_systems(Update, update_score_display.run_if(in_state(GameState::Playing)))
-
+            .add_systems(
+                Update,
+                update_score_display.run_if(in_state(GameState::Playing)),
+            )
             // Gameplay systems
             .add_systems(
                 Update,

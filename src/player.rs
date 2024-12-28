@@ -18,14 +18,10 @@ use std::time::Duration;
 pub struct PaddleConfig {
     /// Movement speed in world units per second
     pub speed: f32,
-    /// Maximum angle the ball can bounce (in radians)
-    pub max_bounce_angle: f32,
     /// X-coordinate for left paddle position
     pub left_x: f32,
     /// X-coordinate for right paddle position
     pub right_x: f32,
-    /// Base width of the paddle
-    pub width: f32,
     /// Total height of the paddle
     pub height: f32,
     /// Depth of the paddle's curve
@@ -44,10 +40,8 @@ impl Default for PaddleConfig {
     fn default() -> Self {
         Self {
             speed: 20.0,
-            max_bounce_angle: 1.0,
             left_x: -7.65,
             right_x: 7.65,
-            width: 0.5,
             height: 2.0,
             curve_depth: 0.3,
             segments: 100,
